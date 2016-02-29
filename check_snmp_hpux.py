@@ -18,10 +18,16 @@
 # 51 Franklin Street, Fifth Floor, Boston, MA  02111-1301  USA
 #
 
+#
+# This script checks the memory on HP-UX system, the CPU and the file
+# system usage (in %). It also shows detailed information about the
+# file system disk space usage and operating system.
+#
+
 import sys, os, re
 import subprocess as sp
 
-VERSION = 0.7
+VERSION = 0.8
 
 HP_UX = {
 	"cpu_user":   ".1.3.6.1.4.1.11.2.3.1.1.13.0",
@@ -119,7 +125,7 @@ def storage_list(ip, community):
 			PERCENT_FREE  = (int(FREE) / float(SIZE)) * 100
 			PERCENT_ALLOC = (int(USED) / float(SIZE)) * 100
 
-			print "%s\t%s (%s %%)\t%s (%s %%)" % (sizeof(SIZE).rjust(10), sizeof(USED).rjust(10), str(int(PERCENT_ALLOC)), sizeof(FREE).rjust(10), str(int(PERCENT_FREE))) + "\t" + p.ljust(30)
+			print "%s\t%s (%.2f %%)\t%s (%.2f %%)" % (sizeof(SIZE).rjust(10), sizeof(USED).rjust(10), PERCENT_ALLOC, sizeof(FREE).rjust(10), PERCENT_FREE) + "\t" + p.ljust(30)
 	sys.exit(0)
 
 

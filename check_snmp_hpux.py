@@ -70,35 +70,50 @@ def usage():
 
 
 def cpu(ip, community):
-	user = int(snmpwalk(ip, community, HP_UX["cpu_user"])[0])
-	sys  = int(snmpwalk(ip, community, HP_UX["cpu_sys"])[0])
-	idel = int(snmpwalk(ip, community, HP_UX["cpu_idel"])[0])
-	nice = int(snmpwalk(ip, community, HP_UX["cpu_nice"])[0])
+	try:
+		user    = int(snmpwalk(ip, community, HP_UX["cpu_user"])[0])
+		system  = int(snmpwalk(ip, community, HP_UX["cpu_sys"])[0])
+		idel    = int(snmpwalk(ip, community, HP_UX["cpu_idel"])[0])
+		nice    = int(snmpwalk(ip, community, HP_UX["cpu_nice"])[0])
+	except:
+		print "UNKNOWN: No SNMP answer from " + ip
+		sys.exit(3)
 
-	total = user + sys + idel + nice
-	idel = float(idel * 100 / total)
-	user = user * 100 / total
-	sys  = sys  * 100 / total
-	nice = nice * 100 / total
+	if user and idel and system and nice:
+		total  = user + system + idel + nice
+		idel   = float(idel * 100 / total)
+		user   = user    * 100 / total
+		system = system  * 100 / total
+		nice   = nice    * 100 / total
 
-	output = "CPU usage %s %% |user_cpu=%s sys_cpu=%s nice_cpu=%s idel_cpu=%s;" % (idel, user, sys, nice, idel)
-	return idel, output
+		output = "CPU usage %s %% |user_cpu=%s sys_cpu=%s nice_cpu=%s idel_cpu=%s;" % (idel, user, system, nice, idel)
+		return idel, output
+	else:
+		print "UNKNOWN: No SNMP answer from " + ip
+		sys.exit(3)
 
 
 def memory(ip, community):
 	total = snmpwalk(ip, community, HP_UX["mem_total"])[0]
 	free = snmpwalk(ip, community, HP_UX["mem_free"])[0]
-	usage = int(total) - int(free)
-	usage_percent = float(usage) * 100 / int(total)
+	if total and free:
+		usage = int(total) - int(free)
+		usage_percent = float(usage) * 100 / int(total)
 
-	output = "Memory usage %.2f %% [%s / %s]|usage=%s;" % (usage_percent, sizeof(float(usage) * 1024), sizeof(float(total) * 1024), int(usage_percent))
-	return usage_percent, output
-
+		output = "Memory usage %.2f %% [%s / %s]|usage=%s;" % (usage_percent, sizeof(float(usage) * 1024), sizeof(float(total) * 1024), int(usage_percent))
+		return usage_percent, output
+	else:
+		print "UNKNOWN: No SNMP answer from " + ip
+		sys.exit(3)
 
 def storage_list(ip, community):
 	LIST_fs = []
 	for i in snmpwalk(ip, community, HP_UX["partition"]):
 		LIST_fs.append(i[1:-1])
+
+	if len(LIST_fs[0]) == 0:
+		print "Sorry, no SNMP (hrStorage) answer from " + ip
+		sys.exit(3)
 
 	LIST_alloc = []
 	for i in snmpwalk(ip, community, HP_UX["allocation"]):
@@ -117,7 +132,7 @@ def storage_list(ip, community):
 
 	for p in LIST_fs:
 		x = LIST_fs.index(p)
-		if (LIST_alloc[x] and LIST_size[x] and LIST_free[x]):
+		if (len(LIST_fs[x]) > 0 and LIST_alloc[x] and LIST_size[x] and LIST_free[x]):
 			SIZE = int(LIST_alloc[x]) * int(LIST_size[x])
 			FREE = int(LIST_alloc[x]) * int(LIST_free[x])
 			USED = SIZE - FREE
@@ -136,8 +151,8 @@ def partition(ip, community, partition):
 		LIST_fs.append(i[1:-1])
 
 	if len(LIST_fs[0]) == 0:
-		print "ERROR: can't find partition", partition[3:]
-		sys.exit(2)
+		print "UNKNOWN: No SNMP answer from " + ip
+		sys.exit(3)
 
 	p = LIST_fs.index(partition[3:])
 

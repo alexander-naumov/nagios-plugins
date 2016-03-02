@@ -19,21 +19,21 @@
 #
 
 #
-# This script checks the memory on HP-UX system, the CPU and the file
-# system usage (in %). It also shows detailed information about the
-# file system disk space usage and operating system.
+# This script checks the memory on HP-UX system, the CPU load average
+# and the file system usage (in %). It also shows detailed information
+# about the file system disk space usage and operating system.
 #
 
 import sys, os, re
 import subprocess as sp
 
-VERSION = 0.9
+VERSION = 1.0
 
 HP_UX = {
-	"cpu_user":   ".1.3.6.1.4.1.11.2.3.1.1.13.0",
-	"cpu_sys":    ".1.3.6.1.4.1.11.2.3.1.1.14.0",
-	"cpu_idel":   ".1.3.6.1.4.1.11.2.3.1.1.15.0",
-	"cpu_nice":   ".1.3.6.1.4.1.11.2.3.1.1.16.0",
+	"cpu_1min":   "1.3.6.1.4.1.11.2.3.1.1.3",
+	"cpu_5min":   "1.3.6.1.4.1.11.2.3.1.1.4",
+	"cpu_15min":  "1.3.6.1.4.1.11.2.3.1.1.5",
+
 	"mem_total":  ".1.3.6.1.4.1.11.2.3.1.1.8.0",
 	"mem_free":   ".1.3.6.1.4.1.11.2.3.1.1.7.0",
 	"partition":  ".1.3.6.1.4.1.11.2.3.1.2.2.1.10",
@@ -63,34 +63,44 @@ def usage():
 	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> os"
 	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> partitions"
 	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> <cpu|mem|fs> <warning> <critical>\n"
-	print "Example: " + sys.argv[0] + " 127.0.0.1 public fs:/var 80 90\t We check: FS space usage (in %) on /var"
-	print "Example: " + sys.argv[0] + " 127.0.0.1 public cpu     80 90\t We check: CPU usage (in %)"
-	print "Example: " + sys.argv[0] + " 127.0.0.1 public mem     80 90\t We check: Memory usage (in %)"
+	print "Example: " + sys.argv[0] + " 127.0.0.1 public fs:/var 80 90\t We check FS space usage (in %) on /var"
+	print "Example: " + sys.argv[0] + " 127.0.0.1 public cpu     1  2 \t We check CPU load average 5 mins (output includes 1 and 15 mins)"
+	print "Example: " + sys.argv[0] + " 127.0.0.1 public mem     80 90\t We check memory usage (in %)"
 	sys.exit(0)
 
 
-def cpu(ip, community):
+def cpu(ip, community, warning, critical):
 	try:
-		user    = int(snmpwalk(ip, community, HP_UX["cpu_user"])[0])
-		system  = int(snmpwalk(ip, community, HP_UX["cpu_sys"])[0])
-		idel    = int(snmpwalk(ip, community, HP_UX["cpu_idel"])[0])
-		nice    = int(snmpwalk(ip, community, HP_UX["cpu_nice"])[0])
+		load_1min  = int(snmpwalk(ip, community, HP_UX["cpu_1min"])[0])
+		load_5min  = int(snmpwalk(ip, community, HP_UX["cpu_5min"])[0])
+		load_15min = int(snmpwalk(ip, community, HP_UX["cpu_15min"])[0])
 	except:
 		print "UNKNOWN: No SNMP answer from " + ip
 		sys.exit(3)
 
-	if user and idel and system and nice:
-		total  = user + system + idel + nice
-		idel   = float(idel * 100 / total)
-		user   = user    * 100 / total
-		system = system  * 100 / total
-		nice   = nice    * 100 / total
+	if load_1min and load_5min and load_15min:
+		load_1min  = float(load_1min) / 100
+		load_5min  = float(load_5min) / 100
+		load_15min = float(load_15min)/ 100
 
-		output = "CPU usage %s %% |user_cpu=%s sys_cpu=%s nice_cpu=%s idel_cpu=%s;" % (idel, user, system, nice, idel)
-		return idel, output
+		output = "CPU load average %s, %s, %s |'1 min'=%s;%s;%s;0;0 '5 min'=%s;%s;%s;0;0 '15 min'=%s;%s;%s;0;0" % \
+			(load_1min, load_5min, load_15min, \
+				load_1min, warning, critical, \
+				load_5min, warning, critical, \
+				load_15min, warning, critical)
 	else:
 		print "UNKNOWN: No SNMP answer from " + ip
 		sys.exit(3)
+
+	if load_5min > critical:
+		print "CRITICAL: " + output
+		sys.exit(2)
+	elif load_5min > warning:
+		print "WARNING: " + output
+		sys.exit(1)
+	else:
+		print "OK: " + output
+		sys.exit(0)
 
 
 def memory(ip, community):
@@ -198,7 +208,7 @@ def main():
 	if (len(sys.argv) == 6):
 
 		if (sys.argv[3] == "cpu"):
-			value, msg = cpu(sys.argv[1], sys.argv[2])
+			cpu(sys.argv[1], sys.argv[2], float(sys.argv[4]), float(sys.argv[5]))
 
 		elif (sys.argv[3] == "mem"):
 			value, msg = memory(sys.argv[1], sys.argv[2])
@@ -213,13 +223,13 @@ def main():
 		usage()
 
 	if (int(value) >= int(sys.argv[5])):
-		print "CRITICAL: " + msg + sys.argv[4] + ";" + sys.argv[5] + ";0;100"
+		print "CRITICAL: " + msg + sys.argv[4] + ";" + sys.argv[5]
 		sys.exit(2)
 	elif (int(value) >= int(sys.argv[4])):
-		print "WARNING: " + msg + sys.argv[4] + ";" + sys.argv[5] + ";0;100"
+		print "WARNING: " + msg + sys.argv[4] + ";" + sys.argv[5]
 		sys.exit(1)
 	else:
-		print "OK: " + msg + sys.argv[4] + ";" + sys.argv[5] + ";0;100"
+		print "OK: " + msg + sys.argv[4] + ";" + sys.argv[5]
 		sys.exit(0)
 
 if __name__ == '__main__':

@@ -36,7 +36,7 @@ HP_UX = {
 
 	"mem_total":  ".1.3.6.1.4.1.11.2.3.1.1.8.0",
 	"mem_free":   ".1.3.6.1.4.1.11.2.3.1.1.7.0",
-	"partition":  ".1.3.6.1.4.1.11.2.3.1.2.2.1.10",
+	"fs":         ".1.3.6.1.4.1.11.2.3.1.2.2.1.10",
 	"allocation": ".1.3.6.1.4.1.11.2.3.1.2.2.1.7",
 	"size":       ".1.3.6.1.4.1.11.2.3.1.2.2.1.4",
 	"free_space": ".1.3.6.1.4.1.11.2.3.1.2.2.1.5"
@@ -61,7 +61,7 @@ def usage():
 	print "It also shows detailed information about the file system disk usage and operating system.\n"
 
 	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> os"
-	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> partitions"
+	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> file-systems"
 	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> <cpu|mem|fs> <warning> <critical>\n"
 	print "Example: " + sys.argv[0] + " 127.0.0.1 public fs:/var 80 90\t We check FS space usage (in %) on /var"
 	print "Example: " + sys.argv[0] + " 127.0.0.1 public cpu     1  2 \t We check CPU load average 5 mins (output includes 1 and 15 mins)"
@@ -116,9 +116,10 @@ def memory(ip, community):
 		print "UNKNOWN: No SNMP answer from " + ip
 		sys.exit(3)
 
+
 def storage_list(ip, community):
 	LIST_fs = []
-	for i in snmpwalk(ip, community, HP_UX["partition"]):
+	for i in snmpwalk(ip, community, HP_UX["fs"]):
 		LIST_fs.append(i[1:-1])
 
 	if len(LIST_fs[0]) == 0:
@@ -154,17 +155,17 @@ def storage_list(ip, community):
 	sys.exit(0)
 
 
-def partition(ip, community, partition):
+def fs(ip, community, fsys):
 
 	LIST_fs = []
-	for i in snmpwalk(ip, community, HP_UX["partition"]):
+	for i in snmpwalk(ip, community, HP_UX["fs"]):
 		LIST_fs.append(i[1:-1])
 
 	if len(LIST_fs[0]) == 0:
 		print "UNKNOWN: No SNMP answer from " + ip
 		sys.exit(3)
 
-	p = LIST_fs.index(partition[3:])
+	p = LIST_fs.index(fsys)
 
 	LIST_alloc = []
 	for i in snmpwalk(ip, community, HP_UX["allocation"]):
@@ -197,9 +198,8 @@ def sizeof(num, suffix='b'):
 
 
 def main():
-
 	if (len(sys.argv) == 4):
-		if (sys.argv[3] == "partitions"):
+		if (sys.argv[3] == "file-systems"):
 			storage_list(sys.argv[1], sys.argv[2])
 		if (sys.argv[3] == "os"):
 			print snmpwalk(sys.argv[1], sys.argv[2], "sysDescr")[0]
@@ -214,7 +214,7 @@ def main():
 			value, msg = memory(sys.argv[1], sys.argv[2])
 
 		elif (sys.argv[3][:2] == "fs"):
-			value, msg = partition(sys.argv[1], sys.argv[2], sys.argv[3])
+			value, msg = fs(sys.argv[1], sys.argv[2], sys.argv[3][3:])
 
 		else:
 			usage()

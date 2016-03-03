@@ -21,13 +21,10 @@
 import sys, os, re
 import subprocess as sp
 
-VERSION = 0.2
+VERSION = 0.3
 
 BSD = {
-	"cpu_user"    :".1.3.6.1.4.1.11.2.3.1.1.13.0",
-	"cpu_sys"     :".1.3.6.1.4.1.11.2.3.1.1.14.0",
-	"cpu_idel"    :".1.3.6.1.4.1.11.2.3.1.1.15.0",
-	"cpu_nice"    :".1.3.6.1.4.1.11.2.3.1.1.16.0",
+	"cpu_load"    :"hrProcessorLoad",
 
 	"proc_name"   :"hrSWRunName",
 	"proc_pid"    :"hrSWRunIndex",
@@ -40,7 +37,7 @@ BSD = {
 
 	"iface_name"  :"ifName",
 
-	"partition"   :"hrStorageDescr",
+	"storage"     :"hrStorageDescr",
 	"allocation"  :"hrStorageAllocationUnits",
 	"used"        :"hrStorageUsed",
 	"size"        :"hrStorageSize",
@@ -75,18 +72,19 @@ def os_info(ip, community):
 def usage():
 	print "Version: " + str(VERSION)
 
-	print "\nThis script checks the memory on OpenBSD system, the CPU and the file system usage."
-	print "It also shows detailed information about the file system disk usage, running processes and operating system.\n"
+	print "\nThis script checks the memory usage on the OpenBSD system, the CPU load"
+	print "average and the file system usage. It also shows detailed information about"
+	print "the file system disk usage, list of running processes and operating system.\n"
 
 	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> os"
 	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> proc"
-	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> partitions"
+	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> file-systems"
 #	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> interfaces"
 	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> <cpu|mem|fs|swap|proc> <warning> <critical>\n"
-	print "Example: " + sys.argv[0] + " 127.0.0.1 public fs:/var 80  90    We check FS space usage (in %) on /var"
-	print "Example: " + sys.argv[0] + " 127.0.0.1 public cpu     80  90    We check CPU usage (in %)"
+	print "Example: " + sys.argv[0] + " 127.0.0.1 public fs:/var 80  90    We check file system space usage (in %) on /var"
+	print "Example: " + sys.argv[0] + " 127.0.0.1 public cpu     80  90    We check CPU load average over the last minute (in %)"
 	print "Example: " + sys.argv[0] + " 127.0.0.1 public mem     80  90    We check memory usage (in %)"
-	print "Example: " + sys.argv[0] + " 127.0.0.1 public proc    100 1000  We check number of running processes"
+	print "Example: " + sys.argv[0] + " 127.0.0.1 public proc    50  100   We check the number of running processes\n"
 	sys.exit(0)
 
 
@@ -127,21 +125,24 @@ def process(ip, community, warning, critical):
 		sys.exit(0)
 
 
-#FIXME
+# FROM rfc2790:
+# "The average, over the last minute, of the percentage
+# of time that this processor was not idle.
+# Implementations may approximate this one minute
+# smoothing period if necessary."
 def cpu(ip, community):
-	user = int(snmpwalk(ip, community, BSD["cpu_user"])[0])
-	sys  = int(snmpwalk(ip, community, BSD["cpu_sys"])[0])
-	idel = int(snmpwalk(ip, community, BSD["cpu_idel"])[0])
-	nice = int(snmpwalk(ip, community, BSD["cpu_nice"])[0])
+	try:
+		load  = snmpwalk(ip, community, BSD["cpu_load"])[0]
+	except:
+		print "UNKNOWN: No SNMP answer from " + ip
+		sys.exit(3)
 
-	total = user + sys + idel + nice
-	idel = float(idel * 100 / total)
-	user = user * 100 / total
-	sys  = sys  * 100 / total
-	nice = nice * 100 / total
-
-	output = "CPU usage %s %% |user_cpu=%s sys_cpu=%s nice_cpu=%s idel_cpu=%s;" % (idel, user, sys, nice, idel)
-	return idel, output
+	if load:
+		output = "CPU load average %s %% |'1 min'=%s;" % (load, load)
+		return int(load), output
+	else:
+		print "UNKNOWN: No SNMP answer from " + ip
+		sys.exit(3)
 
 
 def interfaces(ip, community):
@@ -156,9 +157,10 @@ def interfaces(ip, community):
 
 	sys.exit(0)
 
+
 def storage_list(ip, community):
 	LIST_fs = []
-	for i in snmpwalk(ip, community, BSD["partition"]):
+	for i in snmpwalk(ip, community, BSD["storage"]):
 		LIST_fs.append(i)
 
 	LIST_alloc = []
@@ -189,17 +191,17 @@ def storage_list(ip, community):
 	sys.exit(0)
 
 
-def partition(ip, community, partition):
+def storage(ip, community, fsys):
 	LIST_fs = []
-	for i in snmpwalk(ip, community, BSD["partition"]):
+	for i in snmpwalk(ip, community, BSD["storage"]):
 		LIST_fs.append(i)
 
 	if len(LIST_fs[0]) == 0:
 		print "UNKNOWN: can't find such information"
 		sys.exit(3)
 
-	if partition in LIST_fs:
-		p = LIST_fs.index(partition)
+	if fsys in LIST_fs:
+		p = LIST_fs.index(fsys)
 	else:
 		print "UNKNOWN: can't find such information"
 		sys.exit(3)
@@ -223,9 +225,9 @@ def partition(ip, community, partition):
 	PERCENT_FREE = (int(FREE) / float(SIZE)) * 100
 	PERCENT_ALLOC = (int(USED) / float(SIZE)) * 100
 
-	if partition == "Swap":
+	if fsys == "Swap":
 		output = "Swap usage %.2f %% [ %s / %s ]|usage=%s;" % (PERCENT_ALLOC, sizeof(USED), sizeof(SIZE), int(PERCENT_ALLOC))
-	elif partition == "Real":
+	elif fsys == "Real":
 		output = "Memory usage %.2f %% [ %s / %s ]|usage=%s;" % (PERCENT_ALLOC, sizeof(USED), sizeof(SIZE), int(PERCENT_ALLOC))
 	else:
 		output = "FS usage %.2f %% [ %s / %s ]|usage=%s;" % (PERCENT_ALLOC, sizeof(USED), sizeof(SIZE), int(PERCENT_ALLOC))
@@ -242,17 +244,17 @@ def sizeof(num, suffix='b'):
 
 def main():
 	if (len(sys.argv) == 4):
-		if (sys.argv[3] == "partitions"): storage_list(sys.argv[1], sys.argv[2])
-		if (sys.argv[3] == "os"):         os_info(sys.argv[1], sys.argv[2])
-		if (sys.argv[3] == "proc"):       proc(sys.argv[1], sys.argv[2])
+		if (sys.argv[3] == "file-systems"): storage_list(sys.argv[1], sys.argv[2])
+		if (sys.argv[3] == "os"):           os_info(sys.argv[1], sys.argv[2])
+		if (sys.argv[3] == "proc"):         proc(sys.argv[1], sys.argv[2])
 #		if (sys.argv[3] == "interfaces"): interfaces(sys.argv[1], sys.argv[2])
 
 	if (len(sys.argv) == 6):
 		if   (sys.argv[3] == "cpu"):      value, msg = cpu(sys.argv[1], sys.argv[2])
-		elif (sys.argv[3] == "mem"):      value, msg = partition(sys.argv[1], sys.argv[2], "Real")
-		elif (sys.argv[3] == "swap"):     value, msg = partition(sys.argv[1], sys.argv[2], "Swap")
+		elif (sys.argv[3] == "mem"):      value, msg = storage(sys.argv[1], sys.argv[2], "Real")
+		elif (sys.argv[3] == "swap"):     value, msg = storage(sys.argv[1], sys.argv[2], "Swap")
 		elif (sys.argv[3] == "proc"):     process(sys.argv[1], sys.argv[2], int(sys.argv[4]), int(sys.argv[5]))
-		elif (sys.argv[3][:2] == "fs"):   value, msg = partition(sys.argv[1], sys.argv[2], sys.argv[3][3:])
+		elif (sys.argv[3][:2] == "fs"):   value, msg = storage(sys.argv[1], sys.argv[2], sys.argv[3][3:])
 
 		else: usage()
 	else:	usage()

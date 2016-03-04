@@ -84,6 +84,7 @@ def usage():
 	print "Example: " + sys.argv[0] + " 127.0.0.1 public fs:/var 80  90    We check file system space usage (in %) on /var"
 	print "Example: " + sys.argv[0] + " 127.0.0.1 public cpu     80  90    We check CPU load average over the last minute (in %)"
 	print "Example: " + sys.argv[0] + " 127.0.0.1 public mem     80  90    We check memory usage (in %)"
+	print "Example: " + sys.argv[0] + " 127.0.0.1 public swap    80  90    We check swap usage (in %)"
 	print "Example: " + sys.argv[0] + " 127.0.0.1 public proc    50  100   We check the number of running processes\n"
 	sys.exit(0)
 
@@ -112,7 +113,7 @@ def proc(ip, community):
 def process(ip, community, warning, critical):
 	proc_max = int(snmpwalk(ip, community, BSD["proc_max"])[0])
 	proc_cur = int(snmpwalk(ip, community, BSD["proc_cur"])[0])
-	output = "running %s processes [max %s]|processes=%s;%s;%s;0;%s" % (proc_cur, proc_max, proc_cur, warning, critical, proc_max)
+	output = "running %s processes [max %s]|processes=%s;%s;%s;0;0" % (proc_cur, proc_max, proc_cur, warning, critical)
 
 	if proc_cur > critical:
 		print "CRITICAL: " + output

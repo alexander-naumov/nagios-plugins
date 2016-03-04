@@ -223,13 +223,13 @@ def main():
 		usage()
 
 	if (int(value) >= int(sys.argv[5])):
-		print "CRITICAL: " + msg + sys.argv[4] + ";" + sys.argv[5]
+		print "CRITICAL: " + msg + sys.argv[4] + ";" + sys.argv[5] + ";0;100"
 		sys.exit(2)
 	elif (int(value) >= int(sys.argv[4])):
-		print "WARNING: " + msg + sys.argv[4] + ";" + sys.argv[5]
+		print "WARNING: " + msg + sys.argv[4] + ";" + sys.argv[5] + ";0;100"
 		sys.exit(1)
 	else:
-		print "OK: " + msg + sys.argv[4] + ";" + sys.argv[5]
+		print "OK: " + msg + sys.argv[4] + ";" + sys.argv[5] + ";0;100"
 		sys.exit(0)
 
 if __name__ == '__main__':

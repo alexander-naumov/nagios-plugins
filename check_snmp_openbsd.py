@@ -1,27 +1,40 @@
 #!/usr/bin/env python
 #
-# Alexander Naumov <alexander_naumov@opensuse.org>, 2016
+# Author: Alexander Naumov <alexander_naumov@opensuse.org>
 #
-# This program is free software; you can redistribute it and/or modify
-# it under the terms of the GNU General Public License as published by
-# the Free Software Foundation; either version 3, or (at your option)
-# any later version.
+# Copyright (c) 2016, 2017 Alexander Naumov <alexander_naumov@opensuse.org>, Munich, Germany
+#                     All rights reserved
 #
-# This program is distributed in the hope that it will be useful,
-# but WITHOUT ANY WARRANTY; without even the implied warranty of
-# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-# GNU General Public License for more details.
+# Redistribution and use in source and binary forms, with or without
+# modification, are permitted provided that the following conditions
+# are met:
 #
-# You should have received a copy of the GNU General Public License
-# along with this program (see the file COPYING); if not, see
-# http://www.gnu.org/licenses/, or contact Free Software Foundation, Inc.,
-# 51 Franklin Street, Fifth Floor, Boston, MA  02111-1301  USA
+# 1. Redistributions of source code must retain the above copyright
+# notice, this list of conditions and the following disclaimer.
 #
+# 2. Redistributions in binary form must reproduce the above copyright
+# notice, this list of conditions and the following disclaimer in the
+# documentation and/or other materials provided with the distribution.
+#
+# 3. Neither the name of the copyright holder nor the names of its
+# contributors may be used to endorse or promote products derived from
+# this software without specific prior written permission.
+#
+# THIS SOFTWARE IS PROVIDED BY THE AUTHOR ``AS IS'' AND ANY EXPRESS OR
+# IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES
+# OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED.
+# IN NO EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT,
+# INCIDENTAL, SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT
+# NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE,
+# DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY
+# THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
+# (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF
+# THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
-import sys, os, re
+import sys, os, re, argparse
 import subprocess as sp
 
-VERSION = 0.4
+VERSION = 0.5
 
 BSD = {
 	"cpu_load"    :"hrProcessorLoad",
@@ -49,7 +62,6 @@ BSD = {
 	"iface_iErr"  :"ifInErrors",
 	"iface_conn"  :"ifConnectorPresent",
 
-
 	"storage"     :"hrStorageDescr",
 	"allocation"  :"hrStorageAllocationUnits",
 	"used"        :"hrStorageUsed",
@@ -72,12 +84,12 @@ def snmpwalk(ip, community, OID):
 
 
 def os_info(ip, community):
-	print "\nUname:   " + snmpwalk(sys.argv[1], sys.argv[2], "sysDescr")[0]
-	print "Uptime:  " + " ".join((snmpwalk(sys.argv[1], sys.argv[2], "hrSystemUptime")[0]).split(" ")[-3:])
+	print "\nUname:   " + snmpwalk(ip, community, "sysDescr")[0]
+	print "Uptime:  " + " ".join((snmpwalk(ip, community, "hrSystemUptime")[0]).split(" ")[-3:])
 	#print snmpwalk(sys.argv[1], sys.argv[2], "hrStorageType")[0]
 	# snmpwalk -v2c -c  hrStorage
-	print "CPU:     " + snmpwalk(sys.argv[1], sys.argv[2], "hrDeviceDescr")[0]
-	print "Contact: " + snmpwalk(sys.argv[1], sys.argv[2], "sysContact")[0] + "\n"
+	print "CPU:     " + snmpwalk(ip, community, "hrDeviceDescr")[0]
+	print "Contact: " + snmpwalk(ip, community, "sysContact")[0] + "\n"
 
 	sys.exit(0)
 
@@ -85,9 +97,9 @@ def os_info(ip, community):
 def usage():
 	print "Version: " + str(VERSION)
 
-	print "\nThis script checks the memory usage on the OpenBSD system, the CPU load average"
-	print "and the file system space usage. It also shows detailed information about"
-	print "file system space usage, operating system and running processes.\n"
+	print "\nThis script uses 'snmpwalk' to check usage of memory and swap and"
+	print "the CPU load average on OpenBSD system. It also shows detailed information about"
+	print "file system space usage, operation system and running processes.\n"
 
 	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> os"
 	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> proc"
@@ -103,23 +115,16 @@ def usage():
 	sys.exit(0)
 
 def proc(ip, community):
-	LIST_pid = []
+	LIST_pid, LIST_state, LIST_type, LIST_name, LIST_param = ([] for i in range(5))
+
 	for i in snmpwalk(ip, community, BSD["proc_pid"]):
 		LIST_pid.append(i)
-
-	LIST_state = []
 	for i in snmpwalk(ip, community, BSD["proc_state"]):
 		LIST_state.append(i)
-
-	LIST_type = []
 	for i in snmpwalk(ip, community, BSD["proc_type"]):
 		LIST_type.append(i)
-
-	LIST_name = []
 	for i in snmpwalk(ip, community, BSD["proc_name"]):
 		LIST_name.append(i[1:-1])
-
-	LIST_param = []
 	for i in snmpwalk(ip, community, BSD["proc_param"]):
 		LIST_param.append(i[1:-1])
 
@@ -167,47 +172,28 @@ def cpu(ip, community):
 
 
 def interfaces(ip, community):
-	Index = []
+	Index, Name, Type, Mtu, State, Mac, OErr, IErr, Conn, Ip, Dic = ([] for i in range(11))
+
 	for i in snmpwalk(ip, community, BSD["iface_index"])[:-1]:
 		Index.append(int(i))
-
-	Name = []
 	for i in snmpwalk(ip, community, BSD["iface_name"]):
 		Name.append(i)
-
-	Type = []
 	for i in snmpwalk(ip, community, BSD["iface_type"]):
 		Type.append(i)
-
-	Mtu = []
 	for i in snmpwalk(ip, community, BSD["iface_MTU"]):
 		Mtu.append(i)
-
-	State = []
 	for i in snmpwalk(ip, community, BSD["iface_state"]):
 		State.append(i)
-
-	Mac = []
 	for i in snmpwalk(ip, community, BSD["iface_mac"]):
 		Mac.append(i)
-
-	OErr = []
 	for i in snmpwalk(ip, community, BSD["iface_oErr"]):
 		OErr.append(i)
-
-	IErr = []
 	for i in snmpwalk(ip, community, BSD["iface_iErr"]):
 		IErr.append(i)
-
-	Conn = []
 	for i in snmpwalk(ip, community, BSD["iface_conn"]):
 		Conn.append(i)
-
-	Ip = []
 	for i in snmpwalk(ip, community, BSD["iface_iIndex"]):
 		Ip.append(i)
-
-	Dic = []
 	for i in snmpwalk(ip, community, BSD["iface_dic"]):
 		Dic.append(i)
 
@@ -226,19 +212,14 @@ def interfaces(ip, community):
 
 
 def storage_list(ip, community):
-	LIST_fs = []
+	LIST_fs, LIST_alloc, LIST_size, LIST_used = ([] for i in range(4))
+
 	for i in snmpwalk(ip, community, BSD["storage"]):
 		LIST_fs.append(i)
-
-	LIST_alloc = []
 	for i in snmpwalk(ip, community, BSD["allocation"]):
 		LIST_alloc.append(i)
-
-	LIST_size = []
 	for i in snmpwalk(ip, community, BSD["size"]):
 		LIST_size.append(i)
-
-	LIST_used = []
 	for i in snmpwalk(ip, community, BSD["used"]):
 		LIST_used.append(i)
 
@@ -259,7 +240,8 @@ def storage_list(ip, community):
 
 
 def storage(ip, community, fsys):
-	LIST_fs = []
+	LIST_fs, LIST_alloc, LIST_size, LIST_used = ([] for i in range(4))
+
 	for i in snmpwalk(ip, community, BSD["storage"]):
 		LIST_fs.append(i)
 
@@ -273,15 +255,10 @@ def storage(ip, community, fsys):
 		print "UNKNOWN: can't find such information"
 		sys.exit(3)
 
-	LIST_alloc = []
 	for i in snmpwalk(ip, community, BSD["allocation"]):
 		LIST_alloc.append(i)
-
-	LIST_size = []
 	for i in snmpwalk(ip, community, BSD["size"]):
 		LIST_size.append(i)
-
-	LIST_used = []
 	for i in snmpwalk(ip, community, BSD["used"]):
 		LIST_used.append(i)
 
@@ -310,30 +287,54 @@ def sizeof(num, suffix='b'):
 
 
 def main():
-	if (len(sys.argv) == 4):
-		if (sys.argv[3] == "file-systems"): storage_list(sys.argv[1], sys.argv[2])
-		if (sys.argv[3] == "os"):           os_info(sys.argv[1], sys.argv[2])
-		if (sys.argv[3] == "proc"):         proc(sys.argv[1], sys.argv[2])
-		if (sys.argv[3] == "interfaces"):   interfaces(sys.argv[1], sys.argv[2])
+	p = argparse.ArgumentParser(description=
+	'''This script uses "snmpwalk" to check usage of memory
+	and swap and the CPU load average on OpenBSD system.
+	It also shows detailed information about file system
+	space usage, operation system and running processes.''')
 
-	if (len(sys.argv) == 6):
-		if   (sys.argv[3] == "cpu"):      value, msg = cpu(sys.argv[1], sys.argv[2])
-		elif (sys.argv[3] == "mem"):      value, msg = storage(sys.argv[1], sys.argv[2], "Real")
-		elif (sys.argv[3] == "swap"):     value, msg = storage(sys.argv[1], sys.argv[2], "Swap")
-		elif (sys.argv[3] == "proc"):     process(sys.argv[1], sys.argv[2], int(sys.argv[4]), int(sys.argv[5]))
-		elif (sys.argv[3][:2] == "fs"):   value, msg = storage(sys.argv[1], sys.argv[2], sys.argv[3][3:])
+	p.add_argument('-H',
+                  required=True,
+                  dest='host',
+                  help='IP addess or hostname of the target host')
+	p.add_argument('-C',
+                  required=True,
+                  dest='community',
+                  help='SNMPv2 community')
+	p.add_argument('-O',
+                  required=True,
+                  dest='option',
+                  help='''What sould be checked. This can be CPU, memory, swap, FS or number of running processes''')
+	p.add_argument('-w',
+                  dest='warning',
+                  help='WARNING value')
+	p.add_argument('-c',
+                  dest='critical',
+                  help='CRITICAL value')
 
+	ARG = p.parse_args()
+
+	if (ARG.warning is None and ARG.critical is None):
+		if (ARG.option == "file-systems"): storage_list(ARG.host, ARG.community)
+		if (ARG.option == "os"):           os_info     (ARG.host, ARG.community)
+		if (ARG.option == "proc"):         proc        (ARG.host, ARG.community)
+		if (ARG.option == "interfaces"):   interfaces  (ARG.host, ARG.community)
+	else:
+		if   (ARG.option == "cpu"):    value, msg = cpu    (ARG.host, ARG.community)
+		elif (ARG.option == "mem"):    value, msg = storage(ARG.host, ARG.community, "Real")
+		elif (ARG.option == "swap"):   value, msg = storage(ARG.host, ARG.community, "Swap")
+		elif (ARG.option == "proc"):   process(ARG.host, ARG.community, int(ARG.warning), int(ARG.critical))
+		elif (ARG.option[:2] == "fs"): value, msg = storage(ARG.host, ARG.community, ARG.option[3:])
 		else: usage()
-	else:	usage()
 
-	if (int(value) >= int(sys.argv[5])):
-		print "CRITICAL: " + msg + sys.argv[4] + ";" + sys.argv[5] + ";0;0"
+	if (int(value) >= int(ARG.critical)):
+		print "CRITICAL: " + msg + ARG.warning + ";" + ARG.critical + ";0;0"
 		sys.exit(2)
-	elif (int(value) >= int(sys.argv[4])):
-		print "WARNING: " + msg + sys.argv[4] + ";" + sys.argv[5] + ";0;0"
+	elif (int(value) >= int(ARG.warning)):
+		print "WARNING: " + msg + ARG.warning + ";" + ARG.critical + ";0;0"
 		sys.exit(1)
 	else:
-		print "OK: " + msg + sys.argv[4] + ";" + sys.argv[5] + ";0;0"
+		print "OK: " + msg + ARG.warning + ";" + ARG.critical + ";0;0"
 		sys.exit(0)
 
 if __name__ == '__main__':

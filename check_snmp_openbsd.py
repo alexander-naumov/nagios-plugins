@@ -34,7 +34,7 @@
 import sys, os, re, argparse
 import subprocess as sp
 
-VERSION = 0.5
+VERSION = 0.51
 
 BSD = {
 	"cpu_load"    :"hrProcessorLoad",
@@ -90,29 +90,8 @@ def os_info(ip, community):
 	# snmpwalk -v2c -c  hrStorage
 	print "CPU:     " + snmpwalk(ip, community, "hrDeviceDescr")[0]
 	print "Contact: " + snmpwalk(ip, community, "sysContact")[0] + "\n"
-
 	sys.exit(0)
 
-
-def usage():
-	print "Version: " + str(VERSION)
-
-	print "\nThis script uses 'snmpwalk' to check usage of memory and swap and"
-	print "the CPU load average on OpenBSD system. It also shows detailed information about"
-	print "file system space usage, operation system and running processes.\n"
-
-	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> os"
-	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> proc"
-	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> file-systems"
-	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> interfaces"
-	print "Usage:   " + sys.argv[0] + " <IP address> <SNMP community> <cpu|mem|fs|swap|proc> <warning> <critical>\n"
-
-	print "Example: " + sys.argv[0] + " 127.0.0.1 public fs:/var 80  90    checks file system space usage (in %) on /var"
-	print "Example: " + sys.argv[0] + " 127.0.0.1 public cpu     5   10    checks CPU load average over the last minute"
-	print "Example: " + sys.argv[0] + " 127.0.0.1 public mem     80  90    checks memory usage (in %)"
-	print "Example: " + sys.argv[0] + " 127.0.0.1 public swap    80  90    checks swap usage (in %)"
-	print "Example: " + sys.argv[0] + " 127.0.0.1 public proc    50  100   checks the number of running processes\n"
-	sys.exit(0)
 
 def proc(ip, community):
 	LIST_pid, LIST_state, LIST_type, LIST_name, LIST_param = ([] for i in range(5))
@@ -287,12 +266,43 @@ def sizeof(num, suffix='b'):
 
 
 def main():
-	p = argparse.ArgumentParser(description=
-	'''This script uses "snmpwalk" to check usage of memory
-	and swap and the CPU load average on OpenBSD system.
-	It also shows detailed information about file system
-	space usage, operation system and running processes.''')
+	p = argparse.ArgumentParser(
+  formatter_class=argparse.RawDescriptionHelpFormatter,
+  epilog = '''
+      _____                 ____   _____ _____   
+     / ___ \               |  _ \ / ____|  __ \  
+    / /  / /___  ___  ____ | |_) | (___ | |  | | 
+   / /  / / __ \/ _ \/ __ \|  _ < \___ \| |  | | 
+  / /__/ / /_/ /  __/ / / /| |_) |____) | |__| | 
+  \_____/ .___/\___/_/ /_/ |____/|_____/|_____/  
+       /_/                                       
+              |    .            
+          .   |L  /|   .                        This script uses SNMPv2 to check memory/swap usage,
+      _ . |\ _| \--+._/| .                             file system space usage and CPU load average
+     / ||\| Y J  )   / |/| ./	                 on (remote) OpenBSD system. It also shows detailed
+    J  |)'( |        ` F`.'/                          information about all avaliable file systems,
+  -<|  F         __     .-<                           and configured NICs, system information about
+    | /       .-'. `.  /-. L___                                   OS and list of running processes.
+    J \      <    \  | | O\|.-' 
+  _J \  .-    \/ O | | \  |F      EXAMPLES:
+ '-F  -<_.     \   .-'  `-' L__      
+__J  _   _.     >-'  )._.   |-'   > ./check_snmp_openbsd.py -H 127.0.0.1 -C secret -O fs:/var 80 90
+`-|.'   /_.           \_|   F     checks file system space usage (in %) on /var.
+  /.-   .                _.<       
+ /'    /.'             .'  `\	  > ./check_snmp_openbsd.py -H 127.0.0.1 -C secret -O mem 80 90
+  /L  /'   |/      _.-'-\         checks memory usage (in %).
+ /'J       ___.---'\|	       
+   |\  .--' V  | `. `             > ./check_snmp_openbsd.py -H 127.0.0.1 -C secret -O file-systems
+   |/`. `-.     `._)              shows list of all mounted file systems (including space usage).
+      / .-.\		       
+      \ (  `\                     > ./check_snmp_openbsd.py -H 127.0.0.1 -C secret -O interfaces
+       `.\                        shows list of all configured network interfaces with some related
+                                  information.
+''')
 
+	p.add_argument('--version',
+                 action='version',
+                 version='%(prog)s \nVersion: '+ str(VERSION))
 	p.add_argument('-H',
                   required=True,
                   dest='host',
@@ -304,7 +314,8 @@ def main():
 	p.add_argument('-O',
                   required=True,
                   dest='option',
-                  help='''What sould be checked. This can be CPU, memory, swap, FS or number of running processes''')
+                  help='''What sould be checked. This can be cpu, memory, swap,
+                       fs or number of running processes''')
 	p.add_argument('-w',
                   dest='warning',
                   help='WARNING value')
@@ -313,19 +324,20 @@ def main():
                   help='CRITICAL value')
 
 	ARG = p.parse_args()
-
 	if (ARG.warning is None and ARG.critical is None):
-		if (ARG.option == "file-systems"): storage_list(ARG.host, ARG.community)
-		if (ARG.option == "os"):           os_info     (ARG.host, ARG.community)
-		if (ARG.option == "proc"):         proc        (ARG.host, ARG.community)
-		if (ARG.option == "interfaces"):   interfaces  (ARG.host, ARG.community)
+		if   (ARG.option == "file-systems"): storage_list(ARG.host, ARG.community)
+		elif (ARG.option == "os"):           os_info     (ARG.host, ARG.community)
+		elif (ARG.option == "proc"):         proc        (ARG.host, ARG.community)
+		elif (ARG.option == "interfaces"):   interfaces  (ARG.host, ARG.community)
+		else: p.parse_args(['-h'])
 	else:
 		if   (ARG.option == "cpu"):    value, msg = cpu    (ARG.host, ARG.community)
 		elif (ARG.option == "mem"):    value, msg = storage(ARG.host, ARG.community, "Real")
 		elif (ARG.option == "swap"):   value, msg = storage(ARG.host, ARG.community, "Swap")
 		elif (ARG.option == "proc"):   process(ARG.host, ARG.community, int(ARG.warning), int(ARG.critical))
-		elif (ARG.option[:2] == "fs"): value, msg = storage(ARG.host, ARG.community, ARG.option[3:])
-		else: usage()
+		elif (ARG.option[:2] == "fs" and len(ARG.option)>3):
+                                   value, msg = storage(ARG.host, ARG.community, ARG.option[3:])
+		else: p.parse_args(['-h'])
 
 	if (int(value) >= int(ARG.critical)):
 		print "CRITICAL: " + msg + ARG.warning + ";" + ARG.critical + ";0;0"

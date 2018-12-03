@@ -96,6 +96,26 @@ def snmpget(session, reqinfo, oid):
   return str(a)
 
 
+# FROM rfc2790:
+# "The average, over the last minute, of the percentage
+# of time that this processor was not idle.
+# Implementations may approximate this one minute
+# smoothing period if necessary."
+def cpu(session):
+  try:
+    load  = snmpwalk(session, BSD["cpu_load"])[0]
+  except:
+    print("UNKNOWN: No SNMP answer from " + session.hostname)
+    sys.exit(3)
+
+  if load:
+    output = "CPU load average %s %% |'1 min'=%s;" % (load, load)
+    return int(load), output
+  else:
+    print("UNKNOWN: No SNMP answer from " + session.hostname)
+    sys.exit(3)
+
+
 def process(session, warning, critical):
   proc_max = int(snmpwalk(session, BSD["proc_max"])[0])
   proc_cur = int(snmpwalk(session, BSD["proc_cur"])[0])
@@ -346,7 +366,7 @@ __J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName
                   retry_no_such=False,
                   abort_on_nonexistent=False)
 
-  if (ARG.warning is None and ARG.critical is None):
+  if (ARG.warning is None or ARG.critical is None):
     if   (ARG.option == "file-systems"): storage_list(session)
     elif (ARG.option == "os"):           os_info     (session)
     elif (ARG.option == "proc"):         proc        (session)

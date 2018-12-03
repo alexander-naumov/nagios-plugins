@@ -35,7 +35,7 @@ from easysnmp import Session
 import sys, os, re, argparse
 import subprocess as sp
 
-VERSION = 0.1
+VERSION = 0.2
 
 BSD = {
         "cpu_load"    :"hrProcessorLoad",
@@ -214,26 +214,26 @@ def main():
   \_____/ .___/\___/_/ /_/ |____/|_____/|_____/     |_____/|_| \_|_|  |_|_|      \_/|____/ 
        /_/
               |    .
-          .   |L  /|   .         This script uses SNMPv3 to check memory/swap usage, file system
-      _ . |\ _| \--+._/| .        space usage and CPU load average on (remote) OpenBSD system.
-     / ||\| Y J  )   / |/| ./      It also shows detailed information about all avaliable file
-    J  |)'( |        ` F`.'/       systems, and configured NICs, system information about OS
-  -<|  F         __     .-<         and list of running processes.                 
+          .   |L  /|   .       This script uses SNMPv3 to check memory/swap usage, file system
+      _ . |\ _| \--+._/| .      space usage and CPU load average on (remote) OpenBSD system.
+     / ||\| Y J  )   / |/| ./    It also shows detailed information about all avaliable file
+    J  |)'( |        ` F`.'/     systems, and configured NICs, system information about OS
+  -<|  F         __     .-<       and list of running processes.
     | /       .-'. `.  /-. L___       
-    J \      <    \  | | O\|.-'   EXAMPLES:   
+    J \      <    \  | | O\|.-'                           EXAMPLES:
   _J \  .-    \/ O | | \  |F      
  '-F  -<_.     \   .-'  `-' L__   Checks FS space usage (in %) on '/var' with 'authPriv' secLevel:
-__J  _   _.     >-'  )._.   |-'   > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName> -A <authPassword> \  
-`-|.'   /_.           \_|   F        -a <authProtocol> -X <privPassword> -x <privProtocol> -O fs:/var \ 
-  /.-   .                _.<         -w 80 -c 90
+__J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName> -A <authPassword> \ 
+`-|.'   /_.           \_|   F      -a <authProtocol> -X <privPassword> -x <privProtocol> -O fs:/var \ 
+  /.-   .                _.<       -w 80 -c 90
  /'    /.'             .'  `\ 
-  /L  /'   |/      _.-'-\         Checks RAM usage  
- /'J       ___.---'\|             > 
-   |\  .--' V  | `. `             
+  /L  /'   |/      _.-'-\       Checks RAM usage (in %) with 'authNoPriv' secLevel:
+ /'J       ___.---'\|          > ./openbsd_snmp3.py -u <secName> -A <authPassword> -a <authProtocol> \ 
+   |\  .--' V  | `. `            -l authNoPriv -H <IP_ADDRESS> -O mem -w 60 -c 90
    |/`. `-.     `._)              
-      / .-.\ 
-      \ (  `\                     
-       `.\                        
+      / .-.\                 Checks SWAP usage (in %) with 'noAuthNoPriv' secLevel:
+      \ (  `\                 > ./openbsd_snmp3.py -u <secName> -l noAuthNoPriv -H <IP_ADDRESS> \ 
+       `.\                       -O swap -w 60 -c 90
                                   
 ''')
 
@@ -258,7 +258,7 @@ __J  _   _.     >-'  )._.   |-'   > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secNa
   p.add_argument('-a',
           #required=True,
           dest='authProtocol',
-          help='Set the authentication protocol (MD5 or SHA) used for \
+          help='Set the authentication protocol (MD5|SHA) used for \
                   authenticated SNMPv3 messages.')
   p.add_argument('-A',
           #required=True,
@@ -268,7 +268,7 @@ __J  _   _.     >-'  )._.   |-'   > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secNa
   p.add_argument('-x',
           #required=True,
           dest='privProtocol',
-          help='Set the privacy protocol (DES or AES) used for encrypted \
+          help='Set the privacy protocol (DES|AES) used for encrypted \
                   SNMPv3 messages.')
   p.add_argument('-X',
           #required=True,
@@ -279,7 +279,7 @@ __J  _   _.     >-'  )._.   |-'   > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secNa
           required=True,
           dest='option',
           help='''Check target. This can be "cpu", "mem", "swap", "fs" \
-                  or "proc" - number of running processes''')
+                  or "proc" - number of running processes.''')
   p.add_argument('-w',
           dest='warning',
           help='WARNING value')
@@ -300,10 +300,19 @@ __J  _   _.     >-'  )._.   |-'   > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secNa
          sys.exit(1)
 
   elif ARG.secLevel == "authNoPriv":
-    pass #TODO
+    ARG.privProtocol = u'DEFAULT'
+    ARG.privPassword = u'DEFAULT'
+
+    if ARG.authProtocol is None or \
+       ARG.authPassword is None:
+        p.error("Security Level 'authNoPriv' requires authProtocol and authPassword.")
+        sys.exit(1)
 
   elif ARG.secLevel == "noAuthNoPriv":
-    pass #TODO
+    ARG.privProtocol = u'DEFAULT'
+    ARG.privPassword = u'DEFAULT'
+    ARG.authProtocol = u'DEFAULT'
+    ARG.authPassword = u'DEFAULT'
 
   else:
       p.error("secLevel should be 'authPriv', 'authNoPriv' or 'noAuthNoPriv'")
@@ -336,7 +345,6 @@ __J  _   _.     >-'  )._.   |-'   > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secNa
                   best_guess=0,
                   retry_no_such=False,
                   abort_on_nonexistent=False)
-
 
   if (ARG.warning is None and ARG.critical is None):
     if   (ARG.option == "file-systems"): storage_list(session)

@@ -116,6 +116,78 @@ def cpu(session):
     sys.exit(3)
 
 
+def interfaces(session):
+  Index, Name, Type, Mtu, State, Mac, OErr, IErr, Conn, Ip, Dic = ([] for i in range(11))
+
+  for i in snmpwalk(session, BSD["iface_index"])[:-1]:
+    Index.append(int(i))
+  for i in snmpwalk(session, BSD["iface_name"]):
+    Name.append(i)
+  for i in snmpwalk(session, BSD["iface_type"]):
+    Type.append(i)
+  for i in snmpwalk(session, BSD["iface_MTU"]):
+    Mtu.append(i)
+  for i in snmpwalk(session, BSD["iface_state"]):
+    State.append(i)
+  for i in snmpwalk(session, BSD["iface_mac"]):
+    Mac.append(i)
+  for i in snmpwalk(session, BSD["iface_oErr"]):
+    OErr.append(i)
+  for i in snmpwalk(session, BSD["iface_iErr"]):
+    IErr.append(i)
+  for i in snmpwalk(session, BSD["iface_conn"]):
+    Conn.append(i)
+  for i in snmpwalk(session, BSD["iface_iIndex"]):
+    Ip.append(i)
+  for i in snmpwalk(session, BSD["iface_dic"]):
+    Dic.append(i)
+
+  Dicto = dict(zip(Ip, Dic))
+
+  print("\nNAME       STATE      IP                 MAC                  MTU        TYPE                 CONNECTOR  I/O ERROR")
+  print("===================================================================================================================")
+  for i in Index:
+    try:
+      IP = Dicto[str(i)]
+    except:
+      IP = ""
+      x = Index.index(i)
+      print("%s %s %s %s %s %s %s %s/%s" % (Name[x].ljust(10), State[x].ljust(10), IP.ljust(18), \
+              Mac[x].ljust(20), Mtu[x].ljust(10), Type[x].ljust(20), Conn[x].ljust(10), OErr[x], IErr[x]))
+  sys.exit(0)
+
+
+def proc(session):
+  LIST_pid, LIST_state, LIST_type, LIST_name, LIST_param = ([] for i in range(5))
+
+  appstate = {"1": "running",
+              "2": "runnable"}
+
+  apptype = { "1": "1",
+              "2": "2",
+              "3": "3",
+              "4": "application"}
+
+  for i in snmpwalk(session, BSD["proc_pid"]):
+    LIST_pid.append(i)
+  for i in snmpwalk(session, BSD["proc_state"]):
+    LIST_state.append(appstate[i])
+  for i in snmpwalk(session, BSD["proc_type"]):
+    LIST_type.append(apptype[i])
+  for i in snmpwalk(session, BSD["proc_name"]):
+    LIST_name.append(i)
+  for i in snmpwalk(session, BSD["proc_param"]):
+    LIST_param.append(i)
+
+  print("\nPID        STATE        TYPE            PROC")
+  print("================================================================")
+  for pid in LIST_pid:
+    x = LIST_pid.index(pid)
+    print("%s %s %s %s %s" % (pid.ljust(10), LIST_state[x].ljust(12), \
+            LIST_type[x].ljust(15), LIST_name[x], LIST_param[x]))
+  sys.exit(0)
+
+
 def process(session, warning, critical):
   proc_max = int(snmpwalk(session, BSD["proc_max"])[0])
   proc_cur = int(snmpwalk(session, BSD["proc_cur"])[0])

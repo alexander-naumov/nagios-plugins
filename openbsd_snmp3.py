@@ -371,7 +371,12 @@ __J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName
           required=True,
           dest='option',
           help='''Check target. This can be "cpu", "mem", "swap", "fs" \
-                  or "proc" - number of running processes.''')
+                  or "proc" - number of running processes.\n
+                  Use "os" to see operation system information, "proc" \
+                  to see table of running processes, "interfaces" to see \
+                  some intormation about installed network interfaces, \
+                  "file-systems" to see the statistic of disk usage on \
+                  all mounted file systems.''')
   p.add_argument('-w',
           dest='warning',
           help='WARNING value')

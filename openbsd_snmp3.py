@@ -379,11 +379,11 @@ __J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName
                   all mounted file systems.''')
   p.add_argument('-w',
           dest='warning',
-          help='WARNING value')
+          help='WARNING threshold')
 
   p.add_argument('-c',
           dest='critical',
-          help='CRITICAL value')
+          help='CRITICAL threshold')
 
   ARG = p.parse_args()
 

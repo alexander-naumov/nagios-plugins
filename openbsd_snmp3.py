@@ -3,7 +3,8 @@
 # Author: Alexander Naumov <alexander_naumov@opensuse.org>
 #
 # Copyright (c) 2018 Alexander Naumov <alexander_naumov@opensuse.org>, Munich, Germany
-#                All rights reserved
+# Copyright (c) 2018 FRANKA EMIKA GmbH, Munich, Germany
+#       All rights reserved
 #
 # Redistribution and use in source and binary forms, with or without
 # modification, are permitted provided that the following conditions

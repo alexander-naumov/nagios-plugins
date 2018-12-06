@@ -35,8 +35,9 @@
 from easysnmp import Session
 import sys, os, re, argparse
 import subprocess as sp
+from datetime import datetime, timedelta
 
-VERSION = 0.2
+VERSION = 0.3
 
 BSD = {
         "cpu_load"    :"hrProcessorLoad",
@@ -72,21 +73,11 @@ BSD = {
 
 
 def snmpwalk(session, reqinfo):
-  #print(reqinfo)
   ret = []
   system_items = session.walk(reqinfo)
   for item in system_items:
     ret.append(item.value)
   return ret
-    #print ('{oid}.{oid_index} {snmp_type} = {value}'.format(
-    #    oid=item.oid,
-    #    oid_index=item.oid_index,
-    #    snmp_type=item.snmp_type,
-    #    value=item.value
-    #))
-  #print(session.walk('system'))
-  #print(i)
-
 
 
 def snmpget(session, reqinfo, oid):
@@ -206,9 +197,15 @@ def process(session, warning, critical):
     sys.exit(0)
 
 
+def time(sec):
+  sec = int(sec) / 100
+  sec = datetime.timedelta(seconds=sec)
+  return str(sec)
+
+
 def os_info(session):
   print ("\nSystem:  " + snmpwalk(session,"sysDescr")[0])
-  print ("Uptime:  " + snmpwalk(session,"hrSystemUptime")[0])# + " days") #[0]).split(" ")[-3:]))
+  print ("Uptime:  " + time(snmpwalk(session,"hrSystemUptime")[0]))
   print ("CPU:     " + snmpwalk(session,"hrDeviceDescr")[0])
   print ("Contact: " + snmpwalk(session,"sysContact")[0] + "\n")
   sys.exit(0)

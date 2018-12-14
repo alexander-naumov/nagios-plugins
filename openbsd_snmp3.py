@@ -36,10 +36,10 @@ from easysnmp import Session
 from easysnmp import EasySNMPTimeoutError
 from easysnmp import EasySNMPUnknownObjectIDError
 from easysnmp import EasySNMPConnectionError
+from datetime import timedelta
 
 import sys, os, re, argparse
 import subprocess as sp
-from datetime import datetime, timedelta
 
 VERSION = 0.4
 
@@ -212,7 +212,7 @@ def process(session, warning, critical):
 
 def time(sec):
   sec = int(sec) / 100
-  sec = datetime.timedelta(seconds=sec)
+  sec = timedelta(seconds=sec)
   return str(sec)
 
 

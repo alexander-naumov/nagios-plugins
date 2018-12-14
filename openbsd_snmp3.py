@@ -411,6 +411,10 @@ __J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName
           dest='host',
           help='IP addess or hostname of the target host')
 
+  p.add_argument('-p',
+          dest='port',
+          help="UDP port used for SNMP connection")
+
   p.add_argument('-l',
           required=True,
           dest='secLevel',
@@ -492,12 +496,15 @@ __J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName
   if ARG.option in ["interfaces", "proc"]:
       sprint_value = True
 
+  PORT = 161
+  if ARG.port:
+    PORT = ARG.port
 
   session = Session(hostname=ARG.host,
                   version=3,
                   timeout=1,
                   retries=3,
-                  remote_port=161,
+                  remote_port=PORT,
                   security_level=ARG.secLevel,
                   security_username=ARG.secName,
                   privacy_protocol=ARG.privProtocol,

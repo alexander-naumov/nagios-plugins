@@ -33,11 +33,19 @@
 # THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 
 from easysnmp import Session
+from easysnmp import EasySNMPTimeoutError
+from easysnmp import EasySNMPUnknownObjectIDError
+from easysnmp import EasySNMPConnectionError
+
 import sys, os, re, argparse
 import subprocess as sp
 from datetime import datetime, timedelta
 
-VERSION = 0.3
+VERSION = 0.4
+
+PF = {
+        "pfDescr" :"pfIfDescr",
+        "pfIndex" : "pfIfIndex"}
 
 BSD = {
         "cpu_load"    :"hrProcessorLoad",
@@ -56,6 +64,9 @@ BSD = {
         "iface_index" :"ifIndex",
         "iface_name"  :"ifName",
         "iface_type"  :"ifType",
+        "iface_IN"    :"ifHCInOctets",
+        "iface_OUT"   :"ifHCOutOctets",
+        "iface_Speed" :"ifSpeed",
         "iface_MTU"   :"ifMtu",
         "iface_state" :"ifAdminStatus",
         "iface_mac"   :"ifPhysAddress",
@@ -74,7 +85,12 @@ BSD = {
 
 def snmpwalk(session, reqinfo):
   ret = []
-  system_items = session.walk(reqinfo)
+  try:
+    system_items = session.walk(reqinfo)
+  except EasySNMPTimeoutError:
+    print("Timeout...")
+    sys.exit(1)
+
   for item in system_items:
     ret.append(item.value)
   return ret
@@ -101,17 +117,22 @@ def cpu(session):
     sys.exit(3)
 
   if load:
-    output = "CPU load average %s %% |'1 min'=%s;" % (load, load)
+    output = "CPU load average %s |'1 min'=%s;" % (load, load)
     return int(load), output
   else:
     print("UNKNOWN: No SNMP answer from " + session.hostname)
     sys.exit(3)
 
 
+def pf(session):
+  for i in snmpwalk(session, PF["pfDescr"]):
+    print(i)
+
+
 def interfaces(session):
   Index, Name, Type, Mtu, State, Mac, OErr, IErr, Conn, Ip, Dic = ([] for i in range(11))
 
-  for i in snmpwalk(session, BSD["iface_index"])[:-1]:
+  for i in snmpwalk(session, BSD["iface_index"]):
     Index.append(int(i))
   for i in snmpwalk(session, BSD["iface_name"]):
     Name.append(i)
@@ -140,11 +161,11 @@ def interfaces(session):
   print("===================================================================================================================")
   for i in Index:
     try:
-      IP = Dicto[str(i)]
+      IP = str(Dicto[str(i)])
     except:
-      IP = ""
-      x = Index.index(i)
-      print("%s %s %s %s %s %s %s %s/%s" % (Name[x].ljust(10), State[x].ljust(10), IP.ljust(18), \
+      IP = "---------------"
+    x = Index.index(i)
+    print("%s %s %s %s %s %s %s %s/%s" % (Name[x].ljust(10), State[x].ljust(10), IP.ljust(18), \
               Mac[x].ljust(20), Mtu[x].ljust(10), Type[x].ljust(20), Conn[x].ljust(10), OErr[x], IErr[x]))
   sys.exit(0)
 
@@ -152,20 +173,12 @@ def interfaces(session):
 def proc(session):
   LIST_pid, LIST_state, LIST_type, LIST_name, LIST_param = ([] for i in range(5))
 
-  appstate = {"1": "running",
-              "2": "runnable"}
-
-  apptype = { "1": "1",
-              "2": "2",
-              "3": "3",
-              "4": "application"}
-
   for i in snmpwalk(session, BSD["proc_pid"]):
     LIST_pid.append(i)
   for i in snmpwalk(session, BSD["proc_state"]):
-    LIST_state.append(appstate[i])
+    LIST_state.append(i)
   for i in snmpwalk(session, BSD["proc_type"]):
-    LIST_type.append(apptype[i])
+    LIST_type.append(i)
   for i in snmpwalk(session, BSD["proc_name"]):
     LIST_name.append(i)
   for i in snmpwalk(session, BSD["proc_param"]):
@@ -291,6 +304,68 @@ def storage(session, fsys):
     return PERCENT_ALLOC, "FS usage: %.2f %% [ %s / %s ]|usage=%.2f;" % \
             (PERCENT_ALLOC, sizeof(USED), sizeof(SIZE), PERCENT_ALLOC)
 
+
+def traffic(session, NIC):
+  LIST_name, LIST_In, LIST_Out, LIST_Speed = ([] for i in range(4))
+
+  for i in snmpwalk(session, BSD["iface_name"]):
+    LIST_name.append(i)
+
+  if len(LIST_name) == 0:
+    print ("UNKNOWN: can't find such information")
+    sys.exit(3)
+
+  if NIC in LIST_name:
+    p = LIST_name.index(NIC)
+  else:
+    print ("UNKNOWN: can't find such information")
+    sys.exit(3)
+
+  for i in snmpwalk(session, BSD["iface_IN"]):
+    LIST_In.append(i)
+  for i in snmpwalk(session, BSD["iface_OUT"]):
+    LIST_Out.append(i)
+  for i in snmpwalk(session, BSD["iface_Speed"]):
+    LIST_Speed.append(i)
+
+  NEW_In  = LIST_In[p]
+  NEW_Out = LIST_Out[p]
+  SPEED = int(LIST_Speed[p])
+  print("SPEED = ", SPEED)
+
+  FILENAME = "/tmp/traffic." + session.hostname + "." +NIC
+  try:
+    IN = open(FILENAME).read()
+    OLD_In  = IN.split('\n')[0]
+    OLD_Out = IN.split('\n')[1]
+  except IOError:
+    print ("Could not read cache file. Creating new cache...")
+
+    try:
+      with open(FILENAME, 'w') as out:
+        out.write(NEW_In + '\n' + NEW_Out)
+    except:
+      print("Not saved...")
+    sys.exit(0)
+
+  #print(LIST_Out)
+  #print(LIST_In)
+
+  #  https://www.cisco.com/c/en/us/support/docs/ip/simple-network-management-protocol-snmp/8141-calculate-bandwidth-snmp.html
+  DELTA_In  = ((int(NEW_In)  - int(OLD_In))  * 8 * 100) / 60*5 * SPEED
+  DELTA_Out = ((int(NEW_Out) - int(OLD_Out)) * 8 * 100) / 60*5 * SPEED
+
+  print("Interface '%s' - Traffic In: %sbps, Traffic Out: %sbps | 'traffic_in'=%sbps;;;0; 'traffic_out'=%sbps;;;0;" % (NIC, DELTA_In, DELTA_Out, DELTA_In, DELTA_Out))
+
+  try:
+    with open(FILENAME, 'w') as out:
+      out.write(NEW_In + '\n' + NEW_Out)
+  except:
+    print("Not saved...")
+
+  sys.exit(0)
+
+
 def main():
   p = argparse.ArgumentParser(
       formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -413,6 +488,11 @@ __J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName
       p.error("secLevel should be 'authPriv', 'authNoPriv' or 'noAuthNoPriv'")
       sys.exit(1)
 
+  sprint_value = False
+  if ARG.option in ["interfaces", "proc"]:
+      sprint_value = True
+
+
   session = Session(hostname=ARG.host,
                   version=3,
                   timeout=1,
@@ -435,7 +515,7 @@ __J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName
                   trust_cert=u'',
                   use_long_names=False,
                   use_numeric=False,
-                  use_sprint_value=False,
+                  use_sprint_value=sprint_value,
                   use_enums=False,
                   best_guess=0,
                   retry_no_such=False,
@@ -446,14 +526,19 @@ __J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName
     elif (ARG.option == "os"):           os_info     (session)
     elif (ARG.option == "proc"):         proc        (session)
     elif (ARG.option == "interfaces"):   interfaces  (session)
+    elif (ARG.option[:7] == "traffic" and len(ARG.option)>7):
+      traffic(session, ARG.option[8:])
     else: p.parse_args(['-h'])
+
   else:
-    if   (ARG.option == "cpu"):    value, msg = cpu    (session)
-    elif (ARG.option == "mem"):    value, msg = storage(session, "Real memory")
-    elif (ARG.option == "swap"):   value, msg = storage(session, "Swap space")
-    elif (ARG.option == "proc"):   process(session, int(ARG.warning), int(ARG.critical))
+    if   (ARG.option == "cpu"):     value, msg = cpu    (session)
+    elif (ARG.option == "mem"):     value, msg = storage(session, "Real memory")
+    elif (ARG.option == "swap"):    value, msg = storage(session, "Swap space")
+    elif (ARG.option == "proc"):    process(session, int(ARG.warning), int(ARG.critical))
+
     elif (ARG.option[:2] == "fs" and len(ARG.option)>3):
       value, msg = storage(session, ARG.option[3:])
+
     else: p.parse_args(['-h'])
 
   if (int(value) >= int(ARG.critical)):

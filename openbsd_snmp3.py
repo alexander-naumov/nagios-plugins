@@ -305,7 +305,7 @@ def storage(session, fsys):
             (PERCENT_ALLOC, sizeof(USED), sizeof(SIZE), PERCENT_ALLOC)
 
 
-def traffic(session, NIC):
+def traffic(session, NIC): #FIXME It seems it's broken
   LIST_name, LIST_In, LIST_Out, LIST_Speed = ([] for i in range(4))
 
   for i in snmpwalk(session, BSD["iface_name"]):
@@ -413,7 +413,16 @@ __J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName
 
   p.add_argument('-p',
           dest='port',
-          help="UDP port used for SNMP connection")
+          help="UDP port used for the establishing SNMPv3 connection \
+                  (default 161)")
+
+  p.add_argument('-t',
+          dest='timeout',
+          help="Timeout in seconds (default 1)")
+
+  p.add_argument('-r',
+          dest='retry',
+          help="Number of connection retries (default 3)")
 
   p.add_argument('-l',
           required=True,
@@ -496,14 +505,14 @@ __J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName
   if ARG.option in ["interfaces", "proc"]:
       sprint_value = True
 
-  PORT = 161
-  if ARG.port:
-    PORT = ARG.port
+  TOUT = int(ARG.timeout) if ARG.tout else 1
+  PORT = int(ARG.port)    if ARG.port else 161
+  RTRY = int(ARG.retry)   if ARG.rtry else 3
 
   session = Session(hostname=ARG.host,
                   version=3,
-                  timeout=1,
-                  retries=3,
+                  timeout=TOUT,
+                  retries=RTRY,
                   remote_port=PORT,
                   security_level=ARG.secLevel,
                   security_username=ARG.secName,

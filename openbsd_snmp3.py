@@ -457,7 +457,7 @@ __J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName
           required=True,
           dest='option',
           help='''Check target. This can be "cpu", "mem", "swap", "fs" \
-                  or "proc" - number of running processes.\n
+                  or "proc" - number of running processes.
                   Use "os" to see operation system information, "proc" \
                   to see table of running processes, "interfaces" to see \
                   some intormation about installed network interfaces, \
@@ -505,9 +505,9 @@ __J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName
   if ARG.option in ["interfaces", "proc"]:
       sprint_value = True
 
-  TOUT = int(ARG.timeout) if ARG.tout else 1
-  PORT = int(ARG.port)    if ARG.port else 161
-  RTRY = int(ARG.retry)   if ARG.rtry else 3
+  TOUT = int(ARG.timeout) if ARG.timeout else 1
+  PORT = int(ARG.port)    if ARG.port    else 161
+  RTRY = int(ARG.retry)   if ARG.retry   else 3
 
   session = Session(hostname=ARG.host,
                   version=3,

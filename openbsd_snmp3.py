@@ -40,10 +40,10 @@ from datetime import timedelta
 import sys, os, re, argparse
 import subprocess as sp
 
-VERSION = 0.4
+VERSION = "0.41 (Feb 2020)"
 
 PF = {
-        "pfDescr" :"pfIfDescr",
+        "pfDescr" : "pfIfDescr",
         "pfIndex" : "pfIfIndex"}
 
 BSD = {
@@ -387,16 +387,16 @@ def main():
     J \      <    \  | | O\|.-'                           EXAMPLES:
   _J \  .-    \/ O | | \  |F      
  '-F  -<_.     \   .-'  `-' L__   Checks FS space usage (in %) on '/var' with 'authPriv' secLevel:
-__J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName> -A <authPassword> \ 
-`-|.'   /_.           \_|   F      -a <authProtocol> -X <privPassword> -x <privProtocol> -O fs:/var \ 
-  /.-   .                _.<       -w 80 -c 90
+__J  _   _.     >-'  )._.   |-'   > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName> -A <authPassword>
+`-|.'   /_.           \_|   F       -a <authProtocol> -X <privPassword> -x <privProtocol> -l authPriv
+  /.-   .                _.<        -O fs:/var -w 80 -c 90
  /'    /.'             .'  `\ 
   /L  /'   |/      _.-'-\       Checks RAM usage (in %) with 'authNoPriv' secLevel:
- /'J       ___.---'\|          > ./openbsd_snmp3.py -u <secName> -A <authPassword> -a <authProtocol> \ 
+ /'J       ___.---'\|          > ./openbsd_snmp3.py -u <secName> -A <authPassword> -a <authProtocol>
    |\  .--' V  | `. `            -l authNoPriv -H <IP_ADDRESS> -O mem -w 60 -c 90
    |/`. `-.     `._)              
       / .-.\                 Checks SWAP usage (in %) with 'noAuthNoPriv' secLevel:
-      \ (  `\                 > ./openbsd_snmp3.py -u <secName> -l noAuthNoPriv -H <IP_ADDRESS> \ 
+      \ (  `\                 > ./openbsd_snmp3.py -u <secName> -l noAuthNoPriv -H <IP_ADDRESS>
        `.\                       -O swap -w 60 -c 90
                                   
 ''')
@@ -426,42 +426,44 @@ __J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName
   p.add_argument('-l',
           required=True,
           dest='secLevel',
-          help='Set the securityLevel used for SNMPv3 messages \
-                  (noAuthNoPriv|authNoPriv|authPriv).')
+          help='Set the securityLevel used for SNMPv3 messages (noAuthNoPriv|authNoPriv|authPriv).')
+
   p.add_argument('-u',
           required=True,
           dest='secName',
           help='Set the securityName used for authenticated SNMPv3 messages.')
+
   p.add_argument('-a',
           #required=True,
           dest='authProtocol',
-          help='Set the authentication protocol (MD5|SHA) used for \
-                  authenticated SNMPv3 messages.')
+          help='Set the authentication protocol (MD5|SHA) used for authenticated SNMPv3 messages.')
+
   p.add_argument('-A',
           #required=True,
           dest='authPassword',
-          help='Set the authentication pass phrase used for authenticated \
-                  SNMPv3 messages.')
+          help='Set the authentication pass phrase used for authenticated SNMPv3 messages.')
+
   p.add_argument('-x',
           #required=True,
           dest='privProtocol',
-          help='Set the privacy protocol (DES|AES) used for encrypted \
-                  SNMPv3 messages.')
+          help='Set the privacy protocol (DES|AES) used for encrypted SNMPv3 messages.')
+
   p.add_argument('-X',
           #required=True,
           dest='privPassword',
-          help='Set  the  privacy  pass phrase used for encrypted SNMPv3 \
-                  messages.')
+          help='Set the privacy  pass phrase used for encrypted SNMPv3 messages.')
+
   p.add_argument('-O',
           required=True,
           dest='option',
           help='''Check target. This can be "cpu", "mem", "swap", "fs" \
-                  or "proc" - number of running processes.
-                  Use "os" to see operation system information, "proc" \
-                  to see table of running processes, "interfaces" to see \
-                  some intormation about installed network interfaces, \
-                  "file-systems" to see the statistic of disk usage on \
-                  all mounted file systems.''')
+                  or "proc" - number of running processes.\
+                  Use \
+                  "os" to see operation system information,\
+                  "proc" to see table of running processes,\
+                  "interfaces" to see statistics about installed network interfaces and traffic, \
+                  "file-systems" to see the statistic of disk usage on all mounted file systems.''')
+
   p.add_argument('-w',
           dest='warning',
           help='WARNING threshold')
@@ -478,7 +480,7 @@ __J  _   _.     >-'  )._.   |-' > ./openbsd_snmp3.py -H <IP_ADDRESS> -u <secName
        ARG.privProtocol is None or \
        ARG.privPassword is None:
          p.error("Security Level 'authPriv' requires authProtocol, \
-                 authPassword, privProtocol and privPassword.")
+                   authPassword, privProtocol and privPassword.")
          sys.exit(1)
 
   elif ARG.secLevel == "authNoPriv":

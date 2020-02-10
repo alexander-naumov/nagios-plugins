@@ -40,7 +40,7 @@ from datetime import timedelta
 import sys, os, re, argparse
 import subprocess as sp
 
-VERSION = "0.42 (Feb 2020)"
+VERSION = "0.43 (Feb 2020)"
 
 PF = {
         "pfDescr" : "pfIfDescr",
@@ -90,9 +90,7 @@ def snmpwalk(session, reqinfo):
     print("Timeout...")
     sys.exit(1)
 
-  for item in system_items:
-    ret.append(item.value)
-  return ret
+  return [item.value for item in system_items]
 
 
 def snmpget(session, reqinfo, oid):
@@ -249,8 +247,7 @@ def sizeof(num, suffix='b'):
 def storage(session, fsys):
   LIST_fs, LIST_alloc, LIST_size, LIST_used = ([] for i in range(4))
 
-  for i in snmpwalk(session, BSD["storage"]):
-    LIST_fs.append(i)
+  LIST_fs = [i for i in snmpwalk(session, BSD["storage"])]
 
   if len(LIST_fs) == 0:
     print ("UNKNOWN: can't find such information")
@@ -262,12 +259,9 @@ def storage(session, fsys):
     print ("UNKNOWN: can't find such information")
     sys.exit(3)
 
-  for i in snmpwalk(session, BSD["allocation"]):
-    LIST_alloc.append(i)
-  for i in snmpwalk(session, BSD["size"]):
-    LIST_size.append(i)
-  for i in snmpwalk(session, BSD["used"]):
-    LIST_used.append(i)
+  LIST_alloc = [i for i in snmpwalk(session, BSD["allocation"])]
+  LIST_size  = [i for i in snmpwalk(session, BSD["size"])]
+  LIST_used  = [i for i in snmpwalk(session, BSD["used"])]
 
   SIZE = int(LIST_alloc[p]) * int(LIST_size[p])
   USED = int(LIST_alloc[p]) * int(LIST_used[p])

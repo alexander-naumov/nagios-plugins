@@ -2,7 +2,7 @@
 #
 # Author: Alexander Naumov <alexander_naumov@opensuse.org>
 #
-# Copyright (c) 2018 Alexander Naumov <alexander_naumov@opensuse.org>, Munich, Germany
+# Copyright (c) 2018-2020 Alexander Naumov, Munich, Germany
 #       All rights reserved
 #
 # Redistribution and use in source and binary forms, with or without
@@ -40,7 +40,7 @@ from datetime import timedelta
 import sys, os, re, argparse
 import subprocess as sp
 
-VERSION = "0.41 (Feb 2020)"
+VERSION = "0.42 (Feb 2020)"
 
 PF = {
         "pfDescr" : "pfIfDescr",
@@ -131,28 +131,17 @@ def pf(session):
 def interfaces(session):
   Index, Name, Type, Mtu, State, Mac, OErr, IErr, Conn, Ip, Dic = ([] for i in range(11))
 
-  for i in snmpwalk(session, BSD["iface_index"]):
-    Index.append(int(i))
-  for i in snmpwalk(session, BSD["iface_name"]):
-    Name.append(i)
-  for i in snmpwalk(session, BSD["iface_type"]):
-    Type.append(i)
-  for i in snmpwalk(session, BSD["iface_MTU"]):
-    Mtu.append(i)
-  for i in snmpwalk(session, BSD["iface_state"]):
-    State.append(i)
-  for i in snmpwalk(session, BSD["iface_mac"]):
-    Mac.append(i)
-  for i in snmpwalk(session, BSD["iface_oErr"]):
-    OErr.append(i)
-  for i in snmpwalk(session, BSD["iface_iErr"]):
-    IErr.append(i)
-  for i in snmpwalk(session, BSD["iface_conn"]):
-    Conn.append(i)
-  for i in snmpwalk(session, BSD["iface_iIndex"]):
-    Ip.append(i)
-  for i in snmpwalk(session, BSD["iface_dic"]):
-    Dic.append(i)
+  Index = [int(i) for i in snmpwalk(session, BSD["iface_index"])]
+  Name  = [i for i in snmpwalk(session, BSD["iface_name"])]
+  Type  = [i for i in snmpwalk(session, BSD["iface_type"])]
+  Mtu   = [i for i in snmpwalk(session, BSD["iface_MTU"])]
+  State = [i for i in snmpwalk(session, BSD["iface_state"])]
+  Mac   = [i for i in snmpwalk(session, BSD["iface_mac"])]
+  OErr  = [i for i in snmpwalk(session, BSD["iface_oErr"])]
+  IErr  = [i for i in snmpwalk(session, BSD["iface_iErr"])]
+  Conn  = [i for i in snmpwalk(session, BSD["iface_conn"])]
+  Ip    = [i for i in snmpwalk(session, BSD["iface_iIndex"])]
+  Dic   = [i for i in snmpwalk(session, BSD["iface_dic"])]
 
   Dicto = dict(zip(Ip, Dic))
 
@@ -172,16 +161,11 @@ def interfaces(session):
 def proc(session):
   LIST_pid, LIST_state, LIST_type, LIST_name, LIST_param = ([] for i in range(5))
 
-  for i in snmpwalk(session, BSD["proc_pid"]):
-    LIST_pid.append(i)
-  for i in snmpwalk(session, BSD["proc_state"]):
-    LIST_state.append(i)
-  for i in snmpwalk(session, BSD["proc_type"]):
-    LIST_type.append(i)
-  for i in snmpwalk(session, BSD["proc_name"]):
-    LIST_name.append(i)
-  for i in snmpwalk(session, BSD["proc_param"]):
-    LIST_param.append(i)
+  LIST_pid   = [i for i in snmpwalk(session, BSD["proc_pid"])]
+  LIST_state = [i for i in snmpwalk(session, BSD["proc_state"])]
+  LIST_type  = [i for i in snmpwalk(session, BSD["proc_type"])]
+  LIST_name  = [i for i in snmpwalk(session, BSD["proc_name"])]
+  LIST_param = [i for i in snmpwalk(session, BSD["proc_param"])]
 
   print("\nPID        STATE        TYPE            PROC")
   print("================================================================")
@@ -226,14 +210,10 @@ def os_info(session):
 def storage_list(session):
   LIST_fs, LIST_alloc, LIST_size, LIST_used = ([] for i in range(4))
 
-  for i in snmpwalk(session, BSD["storage"]):
-    LIST_fs.append(i)
-  for i in snmpwalk(session, BSD["allocation"]):
-    LIST_alloc.append(i)
-  for i in snmpwalk(session, BSD["size"]):
-    LIST_size.append(i)
-  for i in snmpwalk(session, BSD["used"]):
-    LIST_used.append(i)
+  LIST_fs    = [i for i in snmpwalk(session, BSD["storage"])]
+  LIST_alloc = [i for i in snmpwalk(session, BSD["allocation"])]
+  LIST_size  = [i for i in snmpwalk(session, BSD["size"])]
+  LIST_used  = [i for i in snmpwalk(session, BSD["used"])]
 
   print ("\n    SIZE\t\tUSED\t\t    AVALIABLE\t\tFILE SYSTEM")
   print ("==================================================================================")
@@ -307,9 +287,7 @@ def storage(session, fsys):
 def traffic(session, NIC): #FIXME It seems it's broken
   LIST_name, LIST_In, LIST_Out, LIST_Speed = ([] for i in range(4))
 
-  for i in snmpwalk(session, BSD["iface_name"]):
-    LIST_name.append(i)
-
+  LIST_name = [i for i in snmpwalk(session, BSD["iface_name"])]
   if len(LIST_name) == 0:
     print ("UNKNOWN: can't find such information")
     sys.exit(3)
@@ -320,16 +298,13 @@ def traffic(session, NIC): #FIXME It seems it's broken
     print ("UNKNOWN: can't find such information")
     sys.exit(3)
 
-  for i in snmpwalk(session, BSD["iface_IN"]):
-    LIST_In.append(i)
-  for i in snmpwalk(session, BSD["iface_OUT"]):
-    LIST_Out.append(i)
-  for i in snmpwalk(session, BSD["iface_Speed"]):
-    LIST_Speed.append(i)
+  LIST_I     = [i for i in snmpwalk(session, BSD["iface_IN"])]
+  LIST_Out   = [i for i in snmpwalk(session, BSD["iface_OUT"])]
+  LIST_Speed = [i for i in snmpwalk(session, BSD["iface_Speed"])]
 
   NEW_In  = LIST_In[p]
   NEW_Out = LIST_Out[p]
-  SPEED = int(LIST_Speed[p])
+  SPEED   = int(LIST_Speed[p])
   print("SPEED = ", SPEED)
 
   FILENAME = "/tmp/traffic." + session.hostname + "." +NIC
@@ -346,9 +321,6 @@ def traffic(session, NIC): #FIXME It seems it's broken
     except:
       print("Not saved...")
     sys.exit(0)
-
-  #print(LIST_Out)
-  #print(LIST_In)
 
   #  https://www.cisco.com/c/en/us/support/docs/ip/simple-network-management-protocol-snmp/8141-calculate-bandwidth-snmp.html
   DELTA_In  = ((int(NEW_In)  - int(OLD_In))  * 8 * 100) / 60*5 * SPEED
